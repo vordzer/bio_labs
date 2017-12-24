@@ -4,13 +4,13 @@
 #include<vector>
 
 //Функция поиска score для конкретных позиций s
-unsigned score(std::vector<unsigned> &cur_s, std::vector<std::string> &src, unsigned sample_length, unsigned &best_score) // Добавили передачу besr_score
+unsigned score(std::vector<unsigned> &cur_s, std::vector<std::string> &src, unsigned sample_length, unsigned row_count, unsigned &best_score)
 {
 	unsigned res = 0;
 	for (unsigned i = 0; i < sample_length; ++i) //проверяется от стартовой позиции до длины шаблона
 	{
 		unsigned cur_nucl_a = 0, cur_nucl_g = 0, cur_nucl_c = 0, cur_nucl_t = 0;
-		for (auto j = 0; j < src.size(); ++j)
+		for (auto j = 0; j < row_count; ++j)
 		{
 			// из вектора всех строк берётся строка с индексом src[j], в ней выбирается символ с индексом[cur_s[j] + i] и сравнивается с возможным значением нуклеотидов
 			if (src[j][cur_s[j] + i] == 'A' || src[j][cur_s[j] + i] == 'a') cur_nucl_a++;
@@ -24,8 +24,8 @@ unsigned score(std::vector<unsigned> &cur_s, std::vector<std::string> &src, unsi
 		if (cur_nucl_c > max_nucl) max_nucl = cur_nucl_c;
 		if (cur_nucl_t > max_nucl) max_nucl = cur_nucl_t;
 		res += max_nucl;
-		if (res + (sample_length - i) * src.size() < best_score) // к текущему значению score прибавляется выражение, равное Optimistic_score
-			return 0; //Если оптимистичное значение меньше лучшего, то возвращаем заведомо малое значение, чтобы перейти на следующую ветку.
+		if (res + (sample_length - i) * row_count + sample_length * (src.size() - row_count) < best_score) // останавливаем линейный поиск, если уже не будет лучшего результата
+			return 0;
 	}
 	return res;
 }
@@ -38,11 +38,12 @@ void search_best_motif(std::vector<unsigned> &cur_s, std::vector<unsigned> &best
 		cur_s[line] = i;
 		if (line + 1 < src.size()) // Проверка на последнюю строку
 		{ // Если строка не последняя, то рекурсивно вызывается поиск мотива для строки ниже
-			search_best_motif(cur_s, best_s, src, sample_length, best_score, line + 1);
+			if (score(cur_s, src, sample_length, line, best_score) + sample_length * (src.size() - line) >= best_score) // Продолжаем искать, если возможнен новый best_score
+				search_best_motif(cur_s, best_s, src, sample_length, best_score, line + 1);
 		}
 		else
 		{ // Если строка последняя, то ищется её лучший мотив
-			unsigned cur_score = score(cur_s, src, sample_length, best_score);
+			unsigned cur_score = score(cur_s, src, sample_length, src.size(), best_score);
 			if (cur_score >= best_score) // Достаточно использования ">" вместо ">=", но тестовые данные содержат два равнозначных массива. При смене типа сравнения коррекстность работы сохраняется, но вывод не совпадает с презентацией
 			{
 				best_score = cur_score;
@@ -55,7 +56,7 @@ void search_best_motif(std::vector<unsigned> &cur_s, std::vector<unsigned> &best
 int main()
 {
 	std::ifstream fsrc("input.txt");
-	if (!fsrc.is_open()) //Проверка существования файла ввода
+	if (!fsrc.is_open()) //Проверка существования войда ввода
 	{
 		std::cout << "Input file not found\n";
 		return 1;
